@@ -1,0 +1,58 @@
+-- 1) Вкладений запит у SELECT: показати order_details + customer_id з orders для кожного рядка order_details
+SELECT od.*,
+    (SELECT o.customer_id
+     FROM orders o
+     WHERE o.id = od.order_id) AS customer_id
+FROM order_details od;
+
+-- 2) Вкладений запит у WHERE: показати order_details, де відповідний запис orders має shipper_id = 3
+SELECT * FROM order_details
+WHERE order_id IN (
+    SELECT id
+    FROM orders
+    WHERE shipper_id = 3);
+
+-- 3) Вкладений запит у FROM: взяти рядки order_details з quantity > 10 і для них знайти AVG(quantity), групування за order_id
+SELECT t.order_id, AVG(t.quantity) AS avg_quantity
+FROM (
+    SELECT order_id, quantity
+    FROM order_details
+    WHERE quantity > 10
+) AS t
+GROUP BY t.order_id;
+
+-- 4) Рішення №3 через WITH (MySQL 8.0+): тимчасова таблиця temp
+WITH temp AS (
+    SELECT order_id, quantity
+    FROM order_details
+    WHERE quantity > 10
+)
+SELECT
+    order_id,
+    AVG(quantity) AS avg_quantity
+FROM temp
+GROUP BY order_id;
+
+-- Якщо MySQL < 8.0, аналогія без WITH:
+SELECT t.order_id, AVG(t.quantity) AS avg_quantity
+    FROM (SELECT order_id, quantity
+         FROM order_details
+         WHERE quantity > 10) AS t
+GROUP BY t.order_id;
+
+-- 5) Функція з 2 параметрами FLOAT: ділить перший на другий. DROP FUNCTION IF EXISTS.
+DROP FUNCTION IF EXISTS divide_float;
+DELIMITER $$
+
+CREATE FUNCTION divide_float(a FLOAT, b FLOAT)
+RETURNS FLOAT
+DETERMINISTIC
+BEGIN
+    RETURN a / b;
+END$$
+
+DELIMITER ;
+
+-- Застосування функції до quantity таблиці order_details (2-й параметр — довільне число, напр. 2.5)
+SELECT od.*, divide_float(od.quantity, 2.5) AS quantity_divided
+FROM order_details od;
